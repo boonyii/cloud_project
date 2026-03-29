@@ -22,9 +22,21 @@ def get_tasks():
 def add_task(task: dict):
     return requests.post(f"{SERVICES['tasks']}/tasks", json=task).json()
 
+@app.delete("/tasks/{task_id}")
+def delete_task(task_id: int):
+    return requests.delete(f"{SERVICES['tasks']}/tasks/{task_id}").json()
+
 @app.get("/schedule")
 def get_schedule():
     return requests.get(f"{SERVICES['schedule']}/schedule").json()
+
+@app.post("/schedule")
+def add_event(event: dict):
+    return requests.post(f"{SERVICES['schedule']}/schedule", json=event).json()
+
+@app.delete("/schedule/{event_id}")
+def delete_event(event_id: int):
+    return requests.delete(f"{SERVICES['schedule']}/schedule/{event_id}").json()
 
 @app.get("/trends")
 def get_trends():
