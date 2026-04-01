@@ -7,7 +7,7 @@ trend_app = FastAPI()
 @trend_app.get("/trends")
 def get_trends():
     try:
-        url = "https://mastodon.social/api/v1/timelines/public?limit=10"
+        url = "https://mastodon.social/api/v1/trends/statuses?limit=10"
         res = requests.get(url, timeout=10).json()
 
         if not isinstance(res, list):
