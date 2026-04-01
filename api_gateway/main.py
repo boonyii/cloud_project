@@ -8,6 +8,7 @@ SERVICES = {
     "schedule": "http://localhost:8002",
     "trends": "http://localhost:8003",
     "github": "http://localhost:8004",
+    "decision": "http://localhost:8005",
 }
 
 @app.get("/")
@@ -45,3 +46,7 @@ def get_trends():
 @app.get("/github/repos")
 def get_repos(username: str = "octocat"):
     return requests.get(f"{SERVICES['github']}/repos?username={username}").json()
+
+@app.get("/recommendation")
+def get_recommendation(username: str = "octocat"):
+    return requests.get(f"{SERVICES['decision']}/recommend?username={username}").json()
