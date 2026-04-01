@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import requests
-from fastapi import FastAPI, Query
+from fastapi import FastAPI
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -83,15 +83,6 @@ def extract_trends(trend_data: Any) -> List[str]:
     return []
 
 
-def extract_repos(repo_data: Any) -> List[str]:
-    names = []
-    if isinstance(repo_data, list):
-        for repo in repo_data[:5]:
-            if isinstance(repo, dict) and repo.get("name"):
-                names.append(str(repo["name"]))
-    return names
-
-
 def summarize_tasks(tasks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     cleaned = []
     for task in tasks[:10]:
@@ -126,7 +117,6 @@ def fallback_recommendation(
     tasks: List[Dict[str, Any]],
     schedule: List[Dict[str, Any]],
     trends: List[str],
-    repos: List[str],
 ) -> Dict[str, Any]:
     open_tasks = [
         t for t in tasks
@@ -166,7 +156,7 @@ def fallback_recommendation(
             "next_steps": [
                 f"Start '{title}' first",
                 "Break it into smaller sub-tasks",
-                "Connect it to GitHub work if relevant",
+                "Check your schedule for the best time slot",
             ],
             "mode": "fallback",
         }
@@ -178,20 +168,8 @@ def fallback_recommendation(
             "reason": "You still have pending work, so this is the best next step.",
             "next_steps": [
                 f"Make progress on '{title}'",
-                "Check whether it links to your GitHub repos",
                 "Review your schedule for time constraints",
-            ],
-            "mode": "fallback",
-        }
-
-    if repos:
-        return {
-            "focus": f"Work on GitHub repo: {repos[0]}",
-            "reason": "There are no pending tasks, so repo work is the strongest next action.",
-            "next_steps": [
-                f"Open repo '{repos[0]}'",
-                "Pick one bug fix or improvement",
-                "Prepare it for frontend demo",
+                "Use trend ideas only if they support your current work",
             ],
             "mode": "fallback",
         }
@@ -202,15 +180,15 @@ def fallback_recommendation(
             "reason": "There are no pending tasks, so exploring trends is useful.",
             "next_steps": [
                 f"Read about '{trends[0]}'",
-                "See whether it inspires a feature",
-                "Add a task if it becomes actionable",
+                "See whether it inspires a feature or task",
+                "Add a new task if it becomes actionable",
             ],
             "mode": "fallback",
         }
 
     return {
         "focus": "Plan your next steps",
-        "reason": "No tasks, repos, or trend data were available.",
+        "reason": "No task or trend data were available.",
         "next_steps": [
             "Add a task",
             "Add a schedule item if needed",
@@ -221,11 +199,9 @@ def fallback_recommendation(
 
 
 def build_prompt(
-    username: str,
     tasks: List[Dict[str, Any]],
     schedule: List[Dict[str, Any]],
     trends: List[str],
-    repos: List[str],
 ) -> str:
     now = datetime.now().isoformat()
 
@@ -234,9 +210,6 @@ You are an intelligent cloud personal assistant inside a microservices project.
 
 Current timestamp:
 {now}
-
-GitHub username:
-{username}
 
 Tasks:
 {json.dumps(tasks, indent=2)}
@@ -247,18 +220,15 @@ Schedule:
 Trending keywords:
 {json.dumps(trends, indent=2)}
 
-GitHub repos:
-{json.dumps(repos, indent=2)}
-
 Your job:
 1. Decide what the user should focus on next.
 2. Explain the reason briefly and clearly.
 3. Give exactly 3 concrete next steps.
 4. Prefer pending tasks over random exploration.
 5. If there are urgent, overdue, or high-priority tasks, prioritize them.
-6. If there are no tasks, use GitHub repos or trends to suggest useful work.
+6. If there are no tasks, use trends to suggest useful work.
 7. Keep the answer practical for a student cloud-computing demo project.
-8. Mention GitHub if it helps show an API-driven development cycle from data processing to frontend user presentation.
+8. Use the schedule when helpful to decide what should be done next.
 
 Return ONLY valid JSON in this exact format:
 {{
@@ -339,40 +309,33 @@ def call_gemini(prompt: str) -> Dict[str, Any]:
 
 
 def build_response(
-    username: str,
     tasks_data: Any,
     schedule_data: Any,
     trends_data: Any,
-    repos_data: Any,
     recommendation: Dict[str, Any],
 ) -> Dict[str, Any]:
     tasks = tasks_data if isinstance(tasks_data, list) else []
     schedule = schedule_data if isinstance(schedule_data, list) else []
     trends = extract_trends(trends_data)
-    repos = extract_repos(repos_data)
 
     return {
         "status": "success",
-        "username": username,
         "generated_at": datetime.now().isoformat(),
         "recommendation": recommendation,
         "summary": {
             "task_count": len(tasks),
             "event_count": len(schedule),
             "trend_count": len(trends),
-            "repo_count": len(repos),
         },
         "data_preview": {
             "tasks": tasks[:5],
             "schedule": schedule[:5],
             "trending_keywords": trends[:5],
-            "github_repos": repos[:5],
         },
         "data_sources": {
             "tasks_available": isinstance(tasks_data, list),
             "schedule_available": isinstance(schedule_data, list),
             "trends_available": isinstance(trends_data, dict),
-            "github_available": isinstance(repos_data, list),
         },
     }
 
@@ -397,33 +360,29 @@ def health():
 
 
 @decision_app.get("/recommend")
-def recommend(username: str = Query(default="octocat")):
-    logger.info("Generating recommendation for username=%s", username)
+def recommend():
+    logger.info("Generating recommendation")
 
     tasks_data = safe_get_json(f"{GATEWAY}/tasks")
     schedule_data = safe_get_json(f"{GATEWAY}/schedule")
     trends_data = safe_get_json(f"{GATEWAY}/trends")
-    repos_data = safe_get_json(f"{GATEWAY}/github/repos?username={username}")
 
     tasks = summarize_tasks(tasks_data if isinstance(tasks_data, list) else [])
     schedule = summarize_schedule(schedule_data if isinstance(schedule_data, list) else [])
     trends = extract_trends(trends_data)
-    repos = extract_repos(repos_data)
 
-    fallback = fallback_recommendation(tasks, schedule, trends, repos)
+    fallback = fallback_recommendation(tasks, schedule, trends)
 
     if not USE_LLM:
         return build_response(
-            username=username,
             tasks_data=tasks_data,
             schedule_data=schedule_data,
             trends_data=trends_data,
-            repos_data=repos_data,
             recommendation=fallback,
         )
 
     try:
-        prompt = build_prompt(username, tasks, schedule, trends, repos)
+        prompt = build_prompt(tasks, schedule, trends)
         gemini_result = call_gemini(prompt)
         recommendation = gemini_result
     except Exception as e:
@@ -432,11 +391,9 @@ def recommend(username: str = Query(default="octocat")):
         recommendation["llm_error"] = str(e)
 
     return build_response(
-        username=username,
         tasks_data=tasks_data,
         schedule_data=schedule_data,
         trends_data=trends_data,
-        repos_data=repos_data,
         recommendation=recommendation,
     )
 

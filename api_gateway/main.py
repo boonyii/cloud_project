@@ -50,3 +50,4 @@ def get_repos(username: str = "octocat"):
 @app.get("/recommendation")
 def get_recommendation(username: str = "octocat"):
     return requests.get(f"{SERVICES['decision']}/recommend?username={username}").json()
+
