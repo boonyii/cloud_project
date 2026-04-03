@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 import requests
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from pathlib import Path
 
 app = FastAPI()
 
@@ -20,8 +22,15 @@ SERVICES = {
     "decision": "http://localhost:8005",
 }
 
+BASE_DIR = Path(__file__).resolve().parent
+FRONTEND_FILE = BASE_DIR / "frontend.html"
+
 @app.get("/")
 def root():
+    return FileResponse(FRONTEND_FILE)
+
+@app.get("/api")
+def api_root():
     return {"message": "OpenClaw API Gateway Running"}
 
 @app.get("/tasks")
@@ -61,4 +70,3 @@ def get_repos(username: str = "octocat", analyze: bool = False):
 @app.get("/recommendation")
 def get_recommendation(username: str = "octocat"):
     return requests.get(f"{SERVICES['decision']}/recommend?username={username}").json()
-
