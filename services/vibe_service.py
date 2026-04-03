@@ -13,6 +13,7 @@ SCHEDULE_SERVICE_URL = os.getenv("SCHEDULE_SERVICE_URL", "http://localhost:8002"
 GITHUB_SERVICE_URL = os.getenv("GITHUB_SERVICE_URL", "http://localhost:8004")
 
 REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "10"))
+GITHUB_ANALYSIS_TIMEOUT = int(os.getenv("GITHUB_ANALYSIS_TIMEOUT", "60"))
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
@@ -24,16 +25,22 @@ class VibeRequest(BaseModel):
     github_username: str = "octocat"
 
 
-def call_json_api(method: str, url: str, payload: Optional[Dict[str, Any]] = None) -> Any:
+def call_json_api(
+    method: str,
+    url: str,
+    payload: Optional[Dict[str, Any]] = None,
+    timeout: Optional[int] = None
+) -> Any:
     method = method.upper()
+    timeout = timeout or REQUEST_TIMEOUT
 
     try:
         if method == "GET":
-            res = requests.get(url, timeout=REQUEST_TIMEOUT)
+            res = requests.get(url, timeout=timeout)
         elif method == "POST":
-            res = requests.post(url, json=payload or {}, timeout=REQUEST_TIMEOUT)
+            res = requests.post(url, json=payload or {}, timeout=timeout)
         elif method == "DELETE":
-            res = requests.delete(url, timeout=REQUEST_TIMEOUT)
+            res = requests.delete(url, timeout=timeout)
         else:
             return {"error": f"Unsupported method: {method}"}
 
@@ -140,7 +147,7 @@ def build_github_task_prompt(repos: List[Dict[str, Any]]) -> str:
     repo_json = json.dumps(repos[:5], indent=2)
 
     return f"""
-You are helping a student turn GitHub repository analysis into actionable project tasks.
+You are helping a student turn GitHub repository data into actionable project tasks.
 
 Repository data:
 {repo_json}
@@ -482,18 +489,24 @@ def fallback_generated_tasks(repos: List[Dict[str, Any]]) -> List[Dict[str, str]
 
     for repo in repos[:3]:
         name = repo.get("name", "repository")
-        analysis = repo.get("analysis", {}) if isinstance(repo.get("analysis"), dict) else {}
-        improvements = analysis.get("improvements", [])
+        description = str(repo.get("description", "") or "").strip()
+        readme_excerpt = str(repo.get("readme_excerpt", "") or "").strip()
+        language = str(repo.get("language", "") or "").strip()
 
-        if isinstance(improvements, list) and improvements:
+        if description:
             tasks.append({
                 "title": f"Improve repo: {name}",
-                "description": str(improvements[0])
+                "description": f"Refine {name} ({language or 'project'}) based on its current description: {description[:120]}"
+            })
+        elif readme_excerpt:
+            tasks.append({
+                "title": f"Review repo: {name}",
+                "description": f"Use the README to improve setup, documentation, or demo flow for {name}."
             })
         else:
             tasks.append({
-                "title": f"Review repo: {name}",
-                "description": "Improve README, polish demo, and strengthen project documentation."
+                "title": f"Polish repo: {name}",
+                "description": "Improve README, UI, and project presentation quality."
             })
 
     if not tasks:
@@ -632,7 +645,8 @@ def execute_intent(parsed: Dict[str, Any], github_username: str) -> Dict[str, An
     if intent == "analyze_github":
         result = call_json_api(
             "GET",
-            f"{GITHUB_SERVICE_URL}/repos?username={github_username}&analyze=true"
+            f"{GITHUB_SERVICE_URL}/repos?username={github_username}&analyze=true",
+            timeout=GITHUB_ANALYSIS_TIMEOUT
         )
         return {
             "action": "analyze_github",
@@ -643,7 +657,8 @@ def execute_intent(parsed: Dict[str, Any], github_username: str) -> Dict[str, An
     if intent == "generate_tasks_from_github":
         repos = call_json_api(
             "GET",
-            f"{GITHUB_SERVICE_URL}/repos?username={github_username}&analyze=true"
+            f"{GITHUB_SERVICE_URL}/repos?username={github_username}&analyze=false",
+            timeout=GITHUB_ANALYSIS_TIMEOUT
         )
 
         if not isinstance(repos, list) or not repos:
