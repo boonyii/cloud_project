@@ -53,8 +53,10 @@ def get_trends():
     return requests.get(f"{SERVICES['trends']}/trends").json()
 
 @app.get("/github/repos")
-def get_repos(username: str = "octocat"):
-    return requests.get(f"{SERVICES['github']}/repos?username={username}").json()
+def get_repos(username: str = "octocat", analyze: bool = False):
+    return requests.get(
+        f"{SERVICES['github']}/repos?username={username}&analyze={str(analyze).lower()}"
+    ).json()
 
 @app.get("/recommendation")
 def get_recommendation(username: str = "octocat"):
