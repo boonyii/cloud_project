@@ -55,7 +55,7 @@
     }
 
     textarea {
-      min-height: 80px;
+      min-height: 90px;
       resize: vertical;
     }
 
@@ -69,6 +69,11 @@
 
     button:hover {
       background: #1d4ed8;
+    }
+
+    button:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
     }
 
     .secondary {
@@ -178,6 +183,7 @@
       align-items: center;
       gap: 12px;
       margin-bottom: 8px;
+      flex-wrap: wrap;
     }
 
     .github-header h2 {
@@ -188,6 +194,20 @@
       width: auto;
       margin: 0;
       white-space: nowrap;
+    }
+
+    .result-box {
+      margin-top: 10px;
+      padding: 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+    }
+
+    pre {
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.45;
     }
   </style>
 </head>
@@ -202,6 +222,13 @@
       <h2>AI Recommendation</h2>
       <button onclick="loadRecommendation()">Refresh Recommendation</button>
       <div id="recommendationBox" class="muted">No recommendation loaded yet.</div>
+    </div>
+
+    <div class="card">
+      <h2>Vibe Coding</h2>
+      <textarea id="vibeCommand" placeholder="Example: Add a task to finish the cloud report tonight"></textarea>
+      <button onclick="runVibeCommand()">Run Vibe Command</button>
+      <div id="vibeResult" class="muted">No vibe command run yet.</div>
     </div>
 
     <div class="card">
@@ -512,6 +539,56 @@
         </ul>
         <p class="muted">Mode: ${rec.mode || "unknown"}</p>
       `;
+    }
+
+    async function runVibeCommand() {
+      const command = document.getElementById("vibeCommand").value.trim();
+      const username = document.getElementById("githubUsername").value.trim() || "octocat";
+      const box = document.getElementById("vibeResult");
+
+      if (!command) {
+        alert("Please enter a command.");
+        return;
+      }
+
+      box.innerHTML = '<div class="result-box">Running...</div>';
+
+      const data = await apiFetch("/vibe", {
+        method: "POST",
+        body: JSON.stringify({
+          command,
+          github_username: username
+        })
+      });
+
+      if (data.error) {
+        box.innerHTML = `<div class="result-box empty">Error: ${data.error}</div>`;
+        return;
+      }
+
+      box.innerHTML = `
+        <div class="result-box">
+          <p><strong>Intent:</strong> ${data.parsed_intent || "unknown"}</p>
+          <p><strong>Mode:</strong> ${data.mode || "unknown"}</p>
+          <p><strong>Message:</strong> ${data.execution?.message || "-"}</p>
+          <pre>${JSON.stringify(data.execution?.result || {}, null, 2)}</pre>
+        </div>
+      `;
+
+      loadTasks();
+      loadSchedule();
+      loadRecommendation();
+
+      if (data.parsed_intent === "analyze_github") {
+        analyzed = true;
+
+        if (Array.isArray(data.execution?.result)) {
+          currentRepos = data.execution.result;
+          renderRepos(currentRepos);
+        } else {
+          loadRepos();
+        }
+      }
     }
 
     loadTasks();
