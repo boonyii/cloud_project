@@ -235,6 +235,12 @@
       <h2>Tasks</h2>
       <input id="taskTitle" placeholder="Task title" />
       <textarea id="taskDescription" placeholder="Task description"></textarea>
+      <select id="taskPriority">
+        <option value="medium">Priority: Medium</option>
+        <option value="high">Priority: High</option>
+        <option value="low">Priority: Low</option>
+      </select>
+      <input id="taskDeadline" placeholder="Deadline (e.g. 2026-04-10 18:00)" />
       <button onclick="addTask()">Add Task</button>
       <button class="secondary" onclick="loadTasks()">Refresh Tasks</button>
       <ul id="taskList"></ul>
@@ -302,6 +308,8 @@
           <strong>${task.title || "Untitled"}</strong><br>
           <span class="muted">${task.description || "No description"}</span><br>
           <span class="tag">${task.status || "pending"}</span>
+          <span class="tag">${task.priority || "medium"}</span>
+          ${task.deadline ? `<span class="muted"> · Due: ${task.deadline}</span>` : ""}
           <br>
           <button class="small-btn" onclick="deleteTask(${task.id})">Delete</button>
         `;
@@ -312,6 +320,8 @@
     async function addTask() {
       const title = document.getElementById("taskTitle").value.trim();
       const description = document.getElementById("taskDescription").value.trim();
+      const priority = document.getElementById("taskPriority").value;
+      const deadline = document.getElementById("taskDeadline").value.trim();
 
       if (!title) {
         alert("Please enter a task title.");
@@ -323,12 +333,16 @@
         body: JSON.stringify({
           title,
           description,
-          status: "pending"
+          status: "pending",
+          priority,
+          deadline: deadline || null
         })
       });
 
       document.getElementById("taskTitle").value = "";
       document.getElementById("taskDescription").value = "";
+      document.getElementById("taskPriority").value = "medium";
+      document.getElementById("taskDeadline").value = "";
 
       loadTasks();
       loadRecommendation();

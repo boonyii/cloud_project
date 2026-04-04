@@ -16,9 +16,17 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
             description TEXT,
-            status TEXT DEFAULT 'pending'
+            status TEXT DEFAULT 'pending',
+            priority TEXT DEFAULT 'medium',
+            deadline TEXT
         )
     """)
+    # Add columns to existing DB if upgrading from old schema
+    for col, definition in [("priority", "TEXT DEFAULT 'medium'"), ("deadline", "TEXT")]:
+        try:
+            conn.execute(f"ALTER TABLE tasks ADD COLUMN {col} {definition}")
+        except Exception:
+            pass
     conn.commit()
     conn.close()
 
@@ -35,8 +43,14 @@ def list_tasks():
 def create_task(task: dict):
     conn = get_db()
     cursor = conn.execute(
-        "INSERT INTO tasks (title, description, status) VALUES (?, ?, ?)",
-        (task.get("title"), task.get("description"), task.get("status", "pending"))
+        "INSERT INTO tasks (title, description, status, priority, deadline) VALUES (?, ?, ?, ?, ?)",
+        (
+            task.get("title"),
+            task.get("description"),
+            task.get("status", "pending"),
+            task.get("priority", "medium"),
+            task.get("deadline"),
+        )
     )
     conn.commit()
     task_id = cursor.lastrowid
