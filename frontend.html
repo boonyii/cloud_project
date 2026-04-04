@@ -21,6 +21,12 @@
       text-align: center;
     }
 
+    header p {
+      margin: 4px 0 0;
+      color: #9ca3af;
+      font-size: 14px;
+    }
+
     .container {
       max-width: 1200px;
       margin: 24px auto;
@@ -45,7 +51,7 @@
       font-size: 20px;
     }
 
-    input, textarea, button {
+    input, textarea, button, select {
       width: 100%;
       padding: 10px 12px;
       margin: 8px 0;
@@ -85,6 +91,14 @@
       background: #d1d5db;
     }
 
+    .success-btn {
+      background: #16a34a;
+    }
+
+    .success-btn:hover {
+      background: #15803d;
+    }
+
     ul {
       list-style: none;
       padding: 0;
@@ -99,15 +113,39 @@
       background: #fafafa;
     }
 
+    li.done {
+      opacity: 0.55;
+      text-decoration: line-through;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
     .small-btn {
       width: auto;
-      padding: 8px 10px;
-      margin-top: 10px;
+      padding: 6px 12px;
+      margin: 0;
       background: #dc2626;
+      font-size: 13px;
     }
 
     .small-btn:hover {
       background: #b91c1c;
+    }
+
+    .done-btn {
+      width: auto;
+      padding: 6px 12px;
+      margin: 0;
+      background: #16a34a;
+      font-size: 13px;
+    }
+
+    .done-btn:hover {
+      background: #15803d;
     }
 
     .tag {
@@ -118,6 +156,26 @@
       border-radius: 999px;
       margin: 4px 6px 0 0;
       font-size: 12px;
+    }
+
+    .tag.priority-high {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .tag.priority-medium {
+      background: #fef9c3;
+      color: #854d0e;
+    }
+
+    .tag.priority-low {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .tag.status-done {
+      background: #d1fae5;
+      color: #065f46;
     }
 
     .muted {
@@ -204,6 +262,25 @@
       border-radius: 10px;
     }
 
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: white;
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    .toast.show { opacity: 1; }
+    .toast.toast-success { background: #16a34a; }
+    .toast.toast-error { background: #dc2626; }
+
     pre {
       overflow-x: auto;
       font-size: 13px;
@@ -213,9 +290,11 @@
 </head>
 <body>
   <header>
-    <h1>Personal Assistant Dashboard</h1>
-    <p>Simple frontend for our project</p>
+    <h1>OpenClaw Personal Assistant</h1>
+    <p>PA-as-a-Service — powered by microservices and Gemini AI</p>
   </header>
+
+  <div id="toast" class="toast"></div>
 
   <div class="container">
     <div class="card recommendation">
@@ -249,7 +328,7 @@
     <div class="card">
       <h2>Schedule</h2>
       <input id="eventTitle" placeholder="Event title" />
-      <input id="eventDatetime" placeholder="2026-04-03 18:00" />
+      <input id="eventDatetime" placeholder="2026-04-10 18:00" />
       <textarea id="eventDescription" placeholder="Event description"></textarea>
       <button onclick="addEvent()">Add Event</button>
       <button class="secondary" onclick="loadSchedule()">Refresh Schedule</button>
@@ -279,19 +358,34 @@
     let currentUsername = "";
     let analyzed = false;
 
+    // ── Toast notification ──────────────────────────────────────────
+    function showToast(message, type = "success") {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.className = `toast toast-${type} show`;
+      setTimeout(() => { toast.className = "toast"; }, 3000);
+    }
+
+    // ── API helper ──────────────────────────────────────────────────
     async function apiFetch(path, options = {}) {
       try {
         const res = await fetch(`${API}${path}`, {
           headers: { "Content-Type": "application/json" },
           ...options
         });
-
         return await res.json();
       } catch (error) {
         return { error: error.message || "Request failed" };
       }
     }
 
+    // ── Priority tag helper ─────────────────────────────────────────
+    function priorityTag(priority) {
+      const p = (priority || "medium").toLowerCase();
+      return `<span class="tag priority-${p}">${p}</span>`;
+    }
+
+    // ── Tasks ───────────────────────────────────────────────────────
     async function loadTasks() {
       const data = await apiFetch("/tasks");
       const list = document.getElementById("taskList");
@@ -303,15 +397,22 @@
       }
 
       data.forEach(task => {
+        const isDone = ["done", "completed", "complete"].includes((task.status || "").toLowerCase());
         const li = document.createElement("li");
+        if (isDone) li.classList.add("done");
+
         li.innerHTML = `
           <strong>${task.title || "Untitled"}</strong><br>
           <span class="muted">${task.description || "No description"}</span><br>
-          <span class="tag">${task.status || "pending"}</span>
-          <span class="tag">${task.priority || "medium"}</span>
+          ${isDone
+            ? '<span class="tag status-done">done</span>'
+            : priorityTag(task.priority)
+          }
           ${task.deadline ? `<span class="muted"> · Due: ${task.deadline}</span>` : ""}
-          <br>
-          <button class="small-btn" onclick="deleteTask(${task.id})">Delete</button>
+          <div class="btn-row">
+            ${!isDone ? `<button class="done-btn" onclick="completeTask(${task.id})">Done</button>` : ""}
+            <button class="small-btn" onclick="deleteTask(${task.id})">Delete</button>
+          </div>
         `;
         list.appendChild(li);
       });
@@ -323,22 +424,16 @@
       const priority = document.getElementById("taskPriority").value;
       const deadline = document.getElementById("taskDeadline").value.trim();
 
-      if (!title) {
-        alert("Please enter a task title.");
-        return;
-      }
+      if (!title) { showToast("Please enter a task title.", "error"); return; }
 
-      await apiFetch("/tasks", {
+      const res = await apiFetch("/tasks", {
         method: "POST",
-        body: JSON.stringify({
-          title,
-          description,
-          status: "pending",
-          priority,
-          deadline: deadline || null
-        })
+        body: JSON.stringify({ title, description, status: "pending", priority, deadline: deadline || null })
       });
 
+      if (res.error) { showToast("Failed to add task.", "error"); return; }
+
+      showToast("Task added!");
       document.getElementById("taskTitle").value = "";
       document.getElementById("taskDescription").value = "";
       document.getElementById("taskPriority").value = "medium";
@@ -348,12 +443,30 @@
       loadRecommendation();
     }
 
-    async function deleteTask(id) {
-      await apiFetch(`/tasks/${id}`, { method: "DELETE" });
+    async function completeTask(id) {
+      const res = await apiFetch(`/tasks/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "done" })
+      });
+      if (res.error) {
+        // PATCH not yet supported — mark optimistically via delete+recreate is complex,
+        // so just reload and show a note
+        showToast("Status update not yet supported via API.", "error");
+        return;
+      }
+      showToast("Task marked as done!");
       loadTasks();
       loadRecommendation();
     }
 
+    async function deleteTask(id) {
+      await apiFetch(`/tasks/${id}`, { method: "DELETE" });
+      showToast("Task deleted.");
+      loadTasks();
+      loadRecommendation();
+    }
+
+    // ── Schedule ────────────────────────────────────────────────────
     async function loadSchedule() {
       const data = await apiFetch("/schedule");
       const list = document.getElementById("scheduleList");
@@ -370,8 +483,9 @@
           <strong>${event.title || "Untitled"}</strong><br>
           <span class="muted">${event.datetime || "No date/time"}</span><br>
           <span>${event.description || "No description"}</span>
-          <br>
-          <button class="small-btn" onclick="deleteEvent(${event.id})">Delete</button>
+          <div class="btn-row">
+            <button class="small-btn" onclick="deleteEvent(${event.id})">Delete</button>
+          </div>
         `;
         list.appendChild(li);
       });
@@ -382,20 +496,16 @@
       const datetime = document.getElementById("eventDatetime").value.trim();
       const description = document.getElementById("eventDescription").value.trim();
 
-      if (!title) {
-        alert("Please enter an event title.");
-        return;
-      }
+      if (!title) { showToast("Please enter an event title.", "error"); return; }
 
-      await apiFetch("/schedule", {
+      const res = await apiFetch("/schedule", {
         method: "POST",
-        body: JSON.stringify({
-          title,
-          datetime,
-          description
-        })
+        body: JSON.stringify({ title, datetime, description })
       });
 
+      if (res.error) { showToast("Failed to add event.", "error"); return; }
+
+      showToast("Event added!");
       document.getElementById("eventTitle").value = "";
       document.getElementById("eventDatetime").value = "";
       document.getElementById("eventDescription").value = "";
@@ -406,10 +516,12 @@
 
     async function deleteEvent(id) {
       await apiFetch(`/schedule/${id}`, { method: "DELETE" });
+      showToast("Event deleted.");
       loadSchedule();
       loadRecommendation();
     }
 
+    // ── Trends ──────────────────────────────────────────────────────
     async function loadTrends() {
       const data = await apiFetch("/trends");
       const box = document.getElementById("trendList");
@@ -430,6 +542,7 @@
       box.innerHTML = tags + insight;
     }
 
+    // ── GitHub Repos ────────────────────────────────────────────────
     function renderRepos(data) {
       const list = document.getElementById("repoList");
       list.innerHTML = "";
@@ -514,10 +627,6 @@
         currentUsername = document.getElementById("githubUsername").value.trim() || "octocat";
       }
 
-      if (!currentUsername) {
-        return;
-      }
-
       btn.disabled = true;
       btn.textContent = "Analyzing...";
 
@@ -534,12 +643,14 @@
         currentRepos = data;
         analyzed = true;
         renderRepos(currentRepos);
+        showToast("Analysis complete!");
       }
 
       btn.disabled = false;
       btn.textContent = "Analyze All";
     }
 
+    // ── Recommendation ──────────────────────────────────────────────
     async function loadRecommendation() {
       const data = await apiFetch("/recommendation");
       const box = document.getElementById("recommendationBox");
@@ -557,28 +668,23 @@
         <ul>
           ${(rec.next_steps || []).map(step => `<li>${step}</li>`).join("")}
         </ul>
-        <p class="muted">Mode: ${rec.mode || "unknown"}</p>
+        <p class="muted">Mode: ${rec.mode || "unknown"} &nbsp;·&nbsp; Tasks: ${data.summary?.task_count ?? "-"} &nbsp;·&nbsp; Events: ${data.summary?.event_count ?? "-"}</p>
       `;
     }
 
+    // ── Vibe Command ────────────────────────────────────────────────
     async function runVibeCommand() {
       const command = document.getElementById("vibeCommand").value.trim();
       const username = document.getElementById("githubUsername").value.trim() || "octocat";
       const box = document.getElementById("vibeResult");
 
-      if (!command) {
-        alert("Please enter a command.");
-        return;
-      }
+      if (!command) { showToast("Please enter a command.", "error"); return; }
 
-      box.innerHTML = '<div class="result-box">Running...</div>';
+      box.innerHTML = '<div class="result-box muted">Running...</div>';
 
       const data = await apiFetch("/vibe", {
         method: "POST",
-        body: JSON.stringify({
-          command,
-          github_username: username
-        })
+        body: JSON.stringify({ command, github_username: username })
       });
 
       if (data.error) {
@@ -586,12 +692,33 @@
         return;
       }
 
+      const intent = data.parsed_intent || "unknown";
+      const message = data.execution?.message || "-";
+      const mode = data.mode || "unknown";
+
+      // Friendly result rendering instead of raw JSON
+      let resultHtml = "";
+      const result = data.execution?.result;
+
+      if (intent === "list_tasks" && Array.isArray(result)) {
+        resultHtml = result.length
+          ? `<ul>${result.map(t => `<li>${priorityTag(t.priority)} <strong>${t.title}</strong> <span class="muted">${t.status}</span></li>`).join("")}</ul>`
+          : '<span class="empty">No tasks found.</span>';
+      } else if (intent === "list_schedule" && Array.isArray(result)) {
+        resultHtml = result.length
+          ? `<ul>${result.map(e => `<li><strong>${e.title}</strong> <span class="muted">${e.datetime || ""}</span></li>`).join("")}</ul>`
+          : '<span class="empty">No events found.</span>';
+      } else if (intent === "analyze_github" && Array.isArray(result)) {
+        resultHtml = result.map(r => `<p><strong>${r.name}</strong>: ${r.analysis?.summary || r.description || "No summary."}</p>`).join("");
+      } else if (result && typeof result === "object") {
+        resultHtml = `<pre>${JSON.stringify(result, null, 2)}</pre>`;
+      }
+
       box.innerHTML = `
         <div class="result-box">
-          <p><strong>Intent:</strong> ${data.parsed_intent || "unknown"}</p>
-          <p><strong>Mode:</strong> ${data.mode || "unknown"}</p>
-          <p><strong>Message:</strong> ${data.execution?.message || "-"}</p>
-          <pre>${JSON.stringify(data.execution?.result || {}, null, 2)}</pre>
+          <p><strong>Intent:</strong> ${intent} &nbsp;·&nbsp; <strong>Mode:</strong> ${mode}</p>
+          <p>${message}</p>
+          ${resultHtml}
         </div>
       `;
 
@@ -599,11 +726,10 @@
       loadSchedule();
       loadRecommendation();
 
-      if (data.parsed_intent === "analyze_github") {
+      if (intent === "analyze_github") {
         analyzed = true;
-
-        if (Array.isArray(data.execution?.result)) {
-          currentRepos = data.execution.result;
+        if (Array.isArray(result)) {
+          currentRepos = result;
           renderRepos(currentRepos);
         } else {
           loadRepos();
@@ -611,6 +737,7 @@
       }
     }
 
+    // ── Init ────────────────────────────────────────────────────────
     loadTasks();
     loadSchedule();
     loadTrends();
