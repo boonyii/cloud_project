@@ -164,6 +164,12 @@ def analyze_repo_data(repo_data: Dict[str, Any]) -> Dict[str, Any]:
         return fallback
 
 
+@github_app.post("/analyze")
+def analyze_repo(repo: RepoAnalyzeRequest):
+    result = analyze_repo_data(repo.model_dump())
+    return {"repo": repo.name, "analysis": result}
+
+
 @github_app.get("/repos")
 def get_repos(username: str = "octocat", analyze: bool = False):
     url = f"{GITHUB_API}/users/{username}/repos"

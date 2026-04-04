@@ -94,6 +94,11 @@ def get_repos(username: str = "octocat", analyze: bool = False):
     ).json()
 
 
+@app.post("/github/analyze")
+def analyze_repo(payload: dict):
+    return requests.post(f"{SERVICES['github']}/analyze", json=payload).json()
+
+
 @app.get("/recommendation")
 def get_recommendation(username: str = "octocat"):
     return requests.get(
