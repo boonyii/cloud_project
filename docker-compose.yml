@@ -1,0 +1,64 @@
+version: "3.9"
+
+x-common: &common
+  build: .
+  env_file: .env
+  restart: unless-stopped
+
+services:
+  task_service:
+    <<: *common
+    command: python -m uvicorn services.task_service:task_app --host 0.0.0.0 --port 8001
+    ports:
+      - "8001:8001"
+    volumes:
+      - task_data:/app
+
+  scheduler_service:
+    <<: *common
+    command: python -m uvicorn services.scheduler_service:schedule_app --host 0.0.0.0 --port 8002
+    ports:
+      - "8002:8002"
+    volumes:
+      - schedule_data:/app
+
+  trend_service:
+    <<: *common
+    command: python -m uvicorn services.trend_service:trend_app --host 0.0.0.0 --port 8003
+    ports:
+      - "8003:8003"
+
+  github_service:
+    <<: *common
+    command: python -m uvicorn services.github_service:github_app --host 0.0.0.0 --port 8004
+    ports:
+      - "8004:8004"
+
+  llm_decision_engine:
+    <<: *common
+    command: python -m uvicorn agent.llm_decision_engine:decision_app --host 0.0.0.0 --port 8005
+    ports:
+      - "8005:8005"
+
+  vibe_service:
+    <<: *common
+    command: python -m uvicorn services.vibe_service:vibe_app --host 0.0.0.0 --port 8006
+    ports:
+      - "8006:8006"
+
+  api_gateway:
+    <<: *common
+    command: python -m uvicorn api_gateway.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      - task_service
+      - scheduler_service
+      - trend_service
+      - github_service
+      - llm_decision_engine
+      - vibe_service
+
+volumes:
+  task_data:
+  schedule_data:
