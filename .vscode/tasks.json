@@ -4,35 +4,49 @@
         {
             "label": "Task Service",
             "type": "shell",
-            "command": "py -m uvicorn services.task_service:task_app --port 8001 --reload",
+            "command": "Get-Content .env | Where-Object { $_ -notmatch '^\\s*#' -and $_ -match '=' } | ForEach-Object { $p = $_ -split '=',2; [System.Environment]::SetEnvironmentVariable($p[0].Trim(), $p[1].Trim(), 'Process') }; python -m uvicorn services.task_service:task_app --port 8001 --reload",
             "presentation": { "panel": "dedicated", "group": "services" },
             "isBackground": true
         },
         {
             "label": "Scheduler Service",
             "type": "shell",
-            "command": "py -m uvicorn services.scheduler_service:schedule_app --port 8002 --reload",
+            "command": "Get-Content .env | Where-Object { $_ -notmatch '^\\s*#' -and $_ -match '=' } | ForEach-Object { $p = $_ -split '=',2; [System.Environment]::SetEnvironmentVariable($p[0].Trim(), $p[1].Trim(), 'Process') }; python -m uvicorn services.scheduler_service:schedule_app --port 8002 --reload",
             "presentation": { "panel": "dedicated", "group": "services" },
             "isBackground": true
         },
         {
             "label": "Trend Service",
             "type": "shell",
-            "command": "py -m uvicorn services.trend_service:trend_app --port 8003 --reload",
+            "command": "Get-Content .env | Where-Object { $_ -notmatch '^\\s*#' -and $_ -match '=' } | ForEach-Object { $p = $_ -split '=',2; [System.Environment]::SetEnvironmentVariable($p[0].Trim(), $p[1].Trim(), 'Process') }; python -m uvicorn services.trend_service:trend_app --port 8003 --reload",
             "presentation": { "panel": "dedicated", "group": "services" },
             "isBackground": true
         },
         {
             "label": "GitHub Service",
             "type": "shell",
-            "command": "py -m uvicorn services.github_service:github_app --port 8004 --reload",
+            "command": "Get-Content .env | Where-Object { $_ -notmatch '^\\s*#' -and $_ -match '=' } | ForEach-Object { $p = $_ -split '=',2; [System.Environment]::SetEnvironmentVariable($p[0].Trim(), $p[1].Trim(), 'Process') }; python -m uvicorn services.github_service:github_app --port 8004 --reload",
             "presentation": { "panel": "dedicated", "group": "services" },
             "isBackground": true
         },
         {
             "label": "API Gateway",
             "type": "shell",
-            "command": "py -m uvicorn api_gateway.main:app --port 8000 --reload",
+            "command": "Get-Content .env | Where-Object { $_ -notmatch '^\\s*#' -and $_ -match '=' } | ForEach-Object { $p = $_ -split '=',2; [System.Environment]::SetEnvironmentVariable($p[0].Trim(), $p[1].Trim(), 'Process') }; python -m uvicorn api_gateway.main:app --port 8000 --reload",
+            "presentation": { "panel": "dedicated", "group": "services" },
+            "isBackground": true
+        },
+        {
+            "label": "LLM Decision Engine",
+            "type": "shell",
+            "command": "Get-Content .env | Where-Object { $_ -notmatch '^\\s*#' -and $_ -match '=' } | ForEach-Object { $p = $_ -split '=',2; [System.Environment]::SetEnvironmentVariable($p[0].Trim(), $p[1].Trim(), 'Process') }; python -m uvicorn agent.llm_decision_engine:decision_app --port 8005 --reload",
+            "presentation": { "panel": "dedicated", "group": "services" },
+            "isBackground": true
+        },
+        {
+            "label": "Vibe Service",
+            "type": "shell",
+            "command": "Get-Content .env | Where-Object { $_ -notmatch '^\\s*#' -and $_ -match '=' } | ForEach-Object { $p = $_ -split '=',2; [System.Environment]::SetEnvironmentVariable($p[0].Trim(), $p[1].Trim(), 'Process') }; python -m uvicorn services.vibe_service:vibe_app --port 8006 --reload",
             "presentation": { "panel": "dedicated", "group": "services" },
             "isBackground": true
         },
@@ -44,7 +58,9 @@
                 "Scheduler Service",
                 "Trend Service",
                 "GitHub Service",
-                "API Gateway"
+                "API Gateway",
+                "LLM Decision Engine",
+                "Vibe Service"
             ],
             "group": { "kind": "build", "isDefault": true },
             "presentation": { "reveal": "always" }
