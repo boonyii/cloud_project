@@ -57,6 +57,11 @@ def add_task(task: dict):
     return requests.post(f"{SERVICES['tasks']}/tasks", json=task).json()
 
 
+@app.patch("/tasks/{task_id}")
+def update_task(task_id: int, updates: dict):
+    return requests.patch(f"{SERVICES['tasks']}/tasks/{task_id}", json=updates).json()
+
+
 @app.delete("/tasks/{task_id}")
 def delete_task(task_id: int):
     return requests.delete(f"{SERVICES['tasks']}/tasks/{task_id}").json()

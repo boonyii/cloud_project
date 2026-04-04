@@ -57,6 +57,25 @@ def create_task(task: dict):
     conn.close()
     return {"status": "added", "id": task_id}
 
+@task_app.patch("/tasks/{task_id}")
+def update_task(task_id: int, updates: dict):
+    allowed = {"title", "description", "status", "priority", "deadline"}
+    fields = {k: v for k, v in updates.items() if k in allowed}
+    if not fields:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    conn = get_db()
+    set_clause = ", ".join(f"{k} = ?" for k in fields)
+    result = conn.execute(
+        f"UPDATE tasks SET {set_clause} WHERE id = ?",
+        (*fields.values(), task_id)
+    )
+    conn.commit()
+    conn.close()
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return {"status": "updated", "id": task_id}
+
+
 @task_app.delete("/tasks/{task_id}")
 def delete_task(task_id: int):
     conn = get_db()
