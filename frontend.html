@@ -419,9 +419,15 @@
         return;
       }
 
-      box.innerHTML = data.trending_keywords
+      const tags = data.trending_keywords
         .map(word => `<span class="tag">${word}</span>`)
         .join(" ");
+
+      const insight = data.insight
+        ? `<p class="muted" style="margin-top:10px"><strong>AI Insight:</strong> ${data.insight}</p>`
+        : "";
+
+      box.innerHTML = tags + insight;
     }
 
     function renderRepos(data) {
